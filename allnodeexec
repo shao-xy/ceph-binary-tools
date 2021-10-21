@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Execute command on all nodes
+
+# Check current node id
+CURRENT_NODE=`cat /home/ceph/bin/whoami`
+if [ ! $CURRENT_NODE ]; then
+	echo "Current node id not found: File /home/ceph/bin/whoami does not exist"
+	exit
+else
+	echo "Current node id: $CURRENT_NODE"
+fi
+
+# Check number of nodes
+NODE_NUM=`cat /home/ceph/bin/nodenum`
+
+# Main loop
+for ((i=1;i<=$NODE_NUM;i++)) do
+	echo -e "\e[1;33mssh n$i $*\e[0m"
+	ssh n$i $*
+done

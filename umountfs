@@ -1,0 +1,5 @@
+#!/bin/bash
+
+MOUNTPOINT=/mnt/cephfs-fuse
+
+sudo umount $MOUNTPOINT

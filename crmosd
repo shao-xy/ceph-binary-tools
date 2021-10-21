@@ -1,0 +1,22 @@
+#!/bin/bash
+
+host=$1
+osd=$2
+
+echo "removing osd - host $host osd $osd"
+
+ceph osd crush reweight osd.$osd 0
+
+echo "waiting active+clean..."
+
+sleep 400
+
+ssh node$host sudo systemctl stop ceph-osd@$osd
+
+ceph osd out osd.$osd
+
+ceph osd crush remove osd.$osd
+
+ceph osd rm osd.$osd
+
+ceph auth del osd.$osd

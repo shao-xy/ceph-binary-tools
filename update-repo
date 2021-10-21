@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Store current path to make sure relative paths work as well
+GWD=$(pwd)
+
+GTIME=
+
+function update_time() {
+	GTIME=$(date "+%Y/%m/%d %H:%M:%S")
+}
+
+function infomsg() {
+	update_time
+	echo -e "${GTIME} \e[1;34m[INFO]\e[0m $1"
+}
+
+function warnmsg() {
+	update_time
+	echo -e "${GTIME} \e[1;33m[WARN]\e[0m $1"
+}
+
+function errormsg() {
+	update_time
+	echo -e "${GTIME} \e[1;31m[ERROR]\e[0m $1"
+}
+
+function parse_args() {
+	executable_path=$0
+
+	if test $# -eq 0; then
+		echo "Usage: ${executable_path} <repo_path> (<repo_path2> <repo_path3> ...)"
+		exit 1
+	fi
+}
+
+function update_repo() {
+	repo_path=$1
+	if test ! -d "${repo_path}"; then
+		errormsg "Source file directory \"${repo_path}\" does not exist."
+		return
+	fi
+	infomsg "\e[1;33mUpdating repo ${repo_path}...\e[0m"
+
+	cd ${repo_path}
+	if cur_br=$(git symbolic-ref --short -q HEAD); then
+		infomsg "Current branch: ${cur_br}"
+		infomsg "Stashing ... "
+		git stash
+	else
+		warnmsg "Not on any branch now. Stashing and checkout to master branch"
+		cur_br=master
+		git stash
+		git checkout "${cur_br}"
+	fi
+
+	infomsg "Start pulling ... "
+	git pull origin ${cur_br}
+	
+	cd ${GWD}
+}
+
+function check_repos() {
+	while test $# -gt 0; do
+		update_repo $1
+		shift
+	done
+}
+
+function main() {
+	parse_args $*
+	check_repos $*
+}
+
+main $*

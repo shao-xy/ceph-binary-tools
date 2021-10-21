@@ -1,0 +1,19 @@
+#!/bin/bash
+para_num=$#
+if [ $para_num != 1 ]
+then
+    echo "必须指定hash个数"
+    exit 1
+fi
+
+dirname=imagenet-dataset
+
+echo "删除上次的clients数据"
+sudo rm -rf /mnt/lustre-client-1/$dirname
+echo "删除 $dirname 文件夹"
+echo "生成hash在 $1 个MDS上的 $dirname 文件夹"
+sudo lfs mkdir -c $1 /mnt/lustre-client-1/$dirname
+sudo chown ceph:ceph /mnt/lustre-client-1/$dirname
+sudo lfs setdirstripe -c $1 -D /mnt/lustre-client-1/$dirname
+lfs getdirstripe /mnt/lustre-client-1/$dirname
+echo "完成"

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+CEPH_REPO=/home/ceph/ceph-src/scaling-mds-ceph
+
+update-repo ${CEPH_REPO}

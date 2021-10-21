@@ -1,0 +1,124 @@
+#!/bin/bash
+
+wd=$(dirname $0)
+bn=$(basename $0)
+
+function errcho()
+{
+	>&2 echo $@
+}
+
+function get_ppid()
+{
+	echo $[$(ps -p ${1:-$$} -o ppid=)+0]
+}
+
+function usage()
+{
+	errcho "$0 acquire|release <lock_name>"
+	exit 1
+}
+
+function acquire()
+{
+	label=$1
+	dotlabel=$label
+	if [ "$label" ]; then
+		dotlabel=".$label"
+	fi
+	ppid=$(get_ppid)
+	tempfile=$(mktemp $wd/.${bn}.lock${dotlabel}.${ppid}.XXXX)
+	lockfile=$wd/.${bn}.lock${dotlabel}
+
+	fail_cnt=0
+	while true; do
+		if ln $tempfile $lockfile 2>/dev/null; then
+			# Atomically locked
+			echo ${ppid} > $lockfile
+			break
+		else
+			locked_pid=$(cat $lockfile 2>/dev/null)
+			if test -z $locked_pid; then
+				locked_pid="(Unknown)"
+			elif test $locked_pid -eq $ppid; then
+				errcho "Already locked by this process."
+				break
+			elif ! ps -p $locked_pid >/dev/null 2>&1; then
+				errcho "Already locked by process pid $locked_pid but it has exited or crashed."
+				errcho -n "Clear it and continue (Automatically cancel in 30 seconds)?  (Y/n): "
+				read -t 30 choice
+				if [[ $choice == y || $choice == Y ]]; then
+					clearlock $label
+					acquire $label
+					exit 0
+				else
+					echo
+					exit 1
+				fi
+			fi
+			# Locked already
+			errcho -en "\rAlready locked by process pid $(cat $lockfile). Waiting ... (already waited for $fail_cnt seconds)"
+			fail_cnt=$[$fail_cnt+1]
+			sleep 1
+		fi
+	done
+	echo $lockfile
+}
+
+function release()
+{
+	label=$1
+	dotlabel=$label
+	if [ "$label" ]; then
+		dotlabel=".$label"
+	fi
+	ppid=$(get_ppid)
+	lockfile=$wd/.${bn}.lock${dotlabel}
+	if test -f $lockfile; then
+		locked_pid=$(cat $lockfile 2>/dev/null)
+		if test $locked_pid -eq $ppid; then
+			rm $lockfile
+		else
+			errcho "Warning: not locked by me, but process pid ${locked_pid}. Release ignored."
+			return 1
+		fi
+	else
+		if [ "$label" ]; then
+			errcho "Warning: label $label not locked"
+		else
+			errcho "Warning: global lock not locked"
+		fi
+		return 1
+	fi
+	rm -f $wd/.${bn}.lock${dotlabel}.${ppid}\.* ${lockfile}
+}
+
+function clearlock()
+{
+	label=$1
+	dotlabel=$label
+	if [ "$label" ]; then
+		dotlabel=".$label"
+	fi
+	rm -f $wd/.${bn}.lock${dotlabel}*
+}
+
+# Parse arguments
+if test $# -lt 1; then
+	usage
+fi
+# operation
+op=$1
+if test "$op" != "acquire" -a "$op" != "release" -a "$op" != "clearlock"; then
+	errcho "Unknown operation: $op"
+	usage
+fi
+shift
+if test $# -eq 0; then
+	$op
+else
+while test $# -gt 0; do
+	$op $1
+	shift
+done
+fi

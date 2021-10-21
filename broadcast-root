@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# This shell script is used to broadcast file into all the nodes for the ceph nodes.
+# Assumptions:
+#
+# Nodes' IP should be recorded in file /etc/hosts to keep contacted as node1, node2, node3, node4
+#
+# This script use 'scp' command to broadcast the first parameter into other nodes
+
+# Modified on 2017-03-13:
+# A new node has been added into the cluster:
+# node5
+
+#echo "This script still has bugs and should not be used!"
+#echo
+#exit
+
+function info() {
+	echo -e "\e[1;32m[INFO]\e[0m$1"
+}
+
+function warn() {
+	echo -e "\e[1;31m[WARNING]\e[0m$1"
+}
+
+if [[ "$1" == "" ]] ; then
+	echo -e "\e[1;31mUsage:\e[0m $0 file/directory"
+	exit
+fi
+
+CUR_NODE=`cat /home/ceph/bin/whoami`
+NODE_ID_MAX=`cat /home/ceph/bin/nodenum`
+info "Current node: $CUR_NODE"
+info "Selected: "$1
+
+if [[ "$2" == "" ]] ; then
+	warn " No destination path given. Default: ~"
+	PARENT_PATH="."
+else
+	info "Parent path given: $2"
+	PARENT_PATH=$2
+fi
+
+if [ -d $1 ] ; then
+	info "Directory selected."
+	for (( i=1; i<=$NODE_ID_MAX; i=i+1))
+	do
+		if [ $i -ne $CUR_NODE ] ; then
+			echo "scp -r $1 root@node$i:$PARENT_PATH" | tee .sh.tmp
+			sh .sh.tmp
+		fi
+	done
+	rm .sh.tmp
+else
+	info "File selected."
+	for (( i=1; i<=$NODE_ID_MAX; i=i+1))
+	do
+		if [ $i -ne $CUR_NODE ] ; then
+			echo "scp $1 root@node$i:$PARENT_PATH" | tee .sh.tmp
+			sh .sh.tmp
+		fi
+	done
+	rm .sh.tmp
+fi
+
+info Done

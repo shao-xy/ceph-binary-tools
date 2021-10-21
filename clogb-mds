@@ -1,0 +1,3 @@
+#!/bin/bash
+
+true | sudo tee /var/log/ceph/bigmem-mds.*.log

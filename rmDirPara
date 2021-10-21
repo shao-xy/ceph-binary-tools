@@ -1,0 +1,26 @@
+#!/bin/bash
+
+function remove()
+{
+	test ! -e $1 && return
+	test ! -d $1 && rm $1 && return
+	for file in $1/*; do
+		if test -d $file; then
+			rm -rf $file/* &
+		else
+			rm $file &
+		fi
+	done
+	wait
+}
+
+if test $# -lt 1; then
+	echo "Fatal: no directories specified."
+	exit 1
+fi
+
+while [ "$1" ]; do
+	remove $1 &
+	shift
+done
+wait

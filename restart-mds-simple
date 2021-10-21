@@ -1,0 +1,14 @@
+#!/bin/bash -xe
+
+SUDO=
+function check_sudo() {
+	if test $(id -u) -ne 0; then
+		echo "None root user detected. 'sudo' used in some procedures."
+		SUDO=sudo
+	fi
+}
+
+check_sudo
+
+${SUDO} systemctl daemon-reload
+${SUDO} systemctl restart ceph-mds.target

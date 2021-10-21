@@ -1,0 +1,71 @@
+#!/bin/bash -e
+
+function usage() {
+	echo "Usage: $0 <max-mds>"
+}
+
+if test $# -gt 0; then
+	usage
+fi
+
+echo "Reading MDS status..."
+mds_stat=$(ceph mds stat)
+if [ "${mds_stat}" == ""  ]; then
+	>&2 echo "Fatal: Could not get MDS status. Abort."
+	return 1
+fi
+mds_stat=${mds_stat%%/*}
+mds_num=${mds_stat#*-}
+
+#test ${mds_num} -eq 5 && echo Yes
+
+## Now mds_stat knows how many active MDSs there are
+
+# First, we trim max MDSs size to 1
+if test ${mds_num} -eq 1; then
+	echo "MDSs size is already 1."
+	echo "Done."
+	exit 0
+fi
+echo "Trimming MDSs size to 1..."
+ceph mds set_max_mds 1 >/dev/null
+
+# Second, we stop the MDSs one by one, with rank from large to small
+set +e
+mds_rank=$[mds_num - 1]
+while [ ${mds_rank} -gt 0 ]; do
+	cnt=0
+	ceph mds stop ${mds_rank} &>/dev/null
+	while [ $? -ne 0 ]; do
+		sleep 1
+		cnt=$[cnt+1]
+		if test $cnt -gt 300; then
+			echo -e "\rWaited for too long, abort."
+			exit 1
+		fi
+		echo -en "\rWaiting: ${cnt} sec"
+		ceph mds stop ${mds_rank} &>/dev/null
+	done
+	echo -e "\rStopping MDS rank ${mds_rank}..."
+	echo -en "\r                     "
+	mds_rank=$[mds_rank-1]
+done
+
+# Third, wait for the last one and exit
+cnt=0
+while [ ${mds_num} -gt 1 ]; do
+	sleep 1
+	cnt=$[cnt+1]
+	if test $cnt -gt 300; then
+		echo -e "\rWaited for too long, abort."
+		exit 1
+	fi
+	echo -en "\rWaiting: ${cnt} sec"
+	mds_stat=$(ceph mds stat)
+	mds_stat=${mds_stat%%/*}
+	mds_num=${mds_stat#*-}
+done
+echo -en "\r                     "
+echo -e "\rDone."
+#notify-sxy "Main cluster MDS size trimmed to 1 done."
+exit 0

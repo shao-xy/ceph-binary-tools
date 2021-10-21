@@ -1,0 +1,59 @@
+#!/bin/bash
+
+#umountfs
+#mountfs
+
+MOUNT_PATH_PREFIX=/mnt/bigmem-clients/
+MONITOR_ADDR=10.0.0.88
+
+max=100
+
+cstart=1
+cend=1
+if test $# -eq 1; then
+	cend=$1
+elif test $# -eq 2; then
+	cstart=$1
+	cend=$2
+elif test $# -ne 0; then
+	echo "Fatal: Unknown arguments: $@"
+	exit $#
+fi
+
+for i in $(seq 1 $max); do
+	sudo umount $MOUNT_PATH_PREFIX$i &>/dev/null &
+done
+wait
+
+mounted=$(df | grep bigmem-client | wc -l)
+if test $mounted -ne 0; then
+	echo "Fatal: unmount failed. Still mounted: $mounted"
+	echo "================================================"
+	df | head -n 1
+	df | grep bigmem-client
+	exit $mounted
+fi
+
+> /var/log/ceph/bigmem-client.admin.log
+
+#clean page cache
+sync && sudo bash -c "echo 3 > /proc/sys/vm/drop_caches"
+
+echo "Mounting ..."
+for i in $(seq $cstart $cend); do
+	dir_path="$MOUNT_PATH_PREFIX$i"
+	if [ ! -d "$dir_path" ]; then
+		sudo mkdir "$dir_path"
+		sudo chown ceph:ceph "$dir_path"
+	fi
+	(sudo ceph-fuse --cluster bigmem -m $MONITOR_ADDR "$dir_path" &>/dev/null ; sudo chown ceph:ceph "$dir_path") &
+done
+wait
+echo "Mounting done."
+
+mounted=$(df | grep bigmem-client | wc -l)
+if test $mounted -ne $[$cend - $cstart + 1]; then
+	echo "Warn: not enough clients up: $mounted/$[$cend - $cstart + 1]"
+fi
+echo "Waiting for 5 seconds..."
+sleep 5

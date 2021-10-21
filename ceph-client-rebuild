@@ -1,0 +1,11 @@
+#!/bin/bash
+
+DIR=/home/ceph/ceph-src/scaling-mds-ceph
+
+cd $DIR/build
+
+make -j64
+
+sudo make install -j16
+
+# remount-ceph 1 1

@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# cremountfs - remount cephfs for cyx
+# cremountfs $dirs - dirs are the number of total mounted points
+# script flows:
+# 1. umount all cephfs in this node and check
+# 2. clean up client log
+# 3. mount $dirs cephfs and check
+# 4. clean up client log
+
+mon=10.0.0.1
+fs_dir=/mnt/cephfs-fuse
+max=500
+
+fs_count=$1
+mounted_dir=`df | grep cephfs-fuse | wc -l`
+
+function check_mounted(){
+	mounted_dir=`df | grep cephfs-fuse | wc -l`
+	if [[ ${mounted_dir} != $1 ]]
+	then
+		echo "[umount failed] - mounted dir is ${mounted_dir}"
+		exit -1
+	fi
+}
+
+#umount
+for i in `seq 1 $max`
+do
+	sudo umount ${fs_dir}$i > /dev/null 2>&1
+done
+
+#check umount
+check_mounted 0
+
+#clean up log
+echo > /var/log/ceph/ceph-client.admin.log
+
+#mount
+echo "mounting..."
+for i in `seq 1 ${fs_count}`
+do
+	#check dir exists
+	if [ ! -d ${fs_dir}$i ]
+	then
+		sudo mkdir ${fs_dir}$i
+		sudo chown ceph:ceph ${fs_dir}$i
+	fi
+
+	sudo ceph-fuse -m $mon ${fs_dir}$i > /dev/null 2>&1
+done
+echo "mounting done."
+
+#check
+check_mounted ${fs_count}
+
+#clean up log
+echo > /var/log/ceph/ceph-client.admin.log

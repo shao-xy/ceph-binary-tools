@@ -1,0 +1,13 @@
+#!/bin/bash
+
+MOUNT_PATH=/mnt/cephfs-fuse
+MONITOR_ADDR=10.0.0.1
+
+if [ "`df | grep ceph-fuse`" ]; then
+	echo "CephFS has already been mounted!"
+	df -h
+	exit
+fi
+
+sudo mkdir -p $MOUNT_PATH
+sudo ceph-fuse -m $MONITOR_ADDR $MOUNT_PATH

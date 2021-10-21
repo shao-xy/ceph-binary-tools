@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# cremountfs - remount cephfs for cyx
+# cremountfs $dirs - dirs are the number of total mounted points
+# script flows:
+# 1. umount all cephfs in this node and check
+# 2. clean up client log
+# 3. mount $dirs cephfs and check
+# 4. clean up client log
+
+mgs=node6@tcp
+#mgs=node6@tcp:node7@tcp
+#mgs=node6@tcp:node7@tcp:node8@tcp
+#mgs=node6@tcp:node7@tcp:node8@tcp:node9@tcp
+#mgs=node6@tcp:node7@tcp:node8@tcp:node9@tcp:node10@tcp
+fs_dir=/mnt/lustre-client-
+max=128
+
+fs_start=$1
+fs_end=$2
+mounted_dir=`df | grep lustre-client- | wc -l`
+
+function check_mounted(){
+	mounted_dir=`df | grep lustre-client- | wc -l`
+	if [[ ${mounted_dir} != $1 ]]
+	then
+		echo "[umount failed] - mounted dir is ${mounted_dir}"
+		exit -1
+	fi
+}
+
+echo "[REMOUNT-LUSTRE: From client$fs_start to client$fs_end"
+
+#umount
+#for i in `seq 1 $max`
+#do
+#	sudo umount ${fs_dir}$i > /dev/null 2>&1
+#done
+
+sudo umount /mnt/lustre*
+
+#check umount
+check_mounted 0
+
+#clean up log
+echo > /var/log/lustre/lustre-client.admin.log
+
+#clean page cache
+sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
+
+#mount
+echo "mounting..."
+for i in `seq $fs_start $fs_end`
+do
+	#check dir exists
+	if [ ! -d ${fs_dir}$i ]
+	then
+		sudo mkdir ${fs_dir}$i
+	fi
+	# mount as a filesystem
+	#sudo mount -t lustre $mgs:/lustre  ${fs_dir}$i > /dev/null 2>&1
+	sudo mount -t lustre $mgs:/lustre  ${fs_dir}$i 
+	sudo chown ceph:ceph ${fs_dir}$i
+done
+echo "mounting done."
+
+/home/ceph/bin/disable-lustre-client-cache
+
+echo "lustre-client cache disabled."
+
+#check
+check_mounted $(($fs_end - $fs_start + 1))
+
+#clean up log
+echo > /var/log/lustre/lustre-client.admin.log
+
+# sleep 5 seconds for start up
+sleep 5

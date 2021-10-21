@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# cremountfs - remount cephfs for cyx
+# cremountfs $dirs - dirs are the number of total mounted points
+# script flows:
+# 1. umount all cephfs in this node and check
+# 2. clean up client log
+# 3. mount $dirs cephfs and check
+# 4. clean up client log
+
+mon=10.0.0.1
+fs_dir=/mnt/ceph-client-
+max=128
+
+fs_target=$1
+#fs_start=$1
+#fs_end=$2
+mounted_dir=`df | grep ceph-client- | wc -l`
+
+function check_mounted(){
+	mounted_dir=`df | grep ceph-client- | wc -l`
+	if [[ ${mounted_dir} != $1 ]]
+	then
+		echo "[umount failed] - mounted dir is ${mounted_dir}"
+		exit -1
+	fi
+}
+
+#umount
+sudo umount -f ${fs_dir}$fs_target
+
+#check umount
+#check_mounted 0
+
+#clean up log
+echo > /var/log/ceph/ceph-client.admin.log
+
+#clean page cache
+sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
+
+#mount
+echo "mounting..."
+#for i in `seq $fs_start $fs_end`
+#do
+	#check dir exists
+if [ ! -d ${fs_dir}$fs_target ]
+then
+	sudo mkdir ${fs_dir}$fs_target
+	sudo chown ceph:ceph ${fs_dir}$fs_target
+fi
+# mount as fuse
+sudo ceph-fuse -m $mon ${fs_dir}${fs_target} > /dev/null
+# mount as kernel driver
+# sudo mount -t ceph $mon:6789:/ ${fs_dir}$fs_target -o mds_namespace=ADSLCeph,name=admin,secretfile=/etc/ceph/admin.secret 
+sudo chown ceph:ceph ${fs_dir}$fs_target
+echo "mounting ${fs_dir}$fs_target done."
+
+#check
+check_mounted $(($fs_end - $fs_start + 1))
+
+#clean up log
+echo > /var/log/ceph/ceph-client.admin.log
+
+# sleep 5 seconds for start up
+sleep 5

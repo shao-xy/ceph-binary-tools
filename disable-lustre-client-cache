@@ -1,0 +1,1 @@
+sudo lctl set_param mdc.lustre-MDT000*.max_dirty_mb=0.004

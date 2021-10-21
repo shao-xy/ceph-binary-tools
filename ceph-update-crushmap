@@ -1,0 +1,9 @@
+#!/bin/bash
+
+ceph osd getcrushmap -o .crushmap.out.tmp
+crushtool -d .crushmap.out.tmp -o .crushmap.tmp
+vim .crushmap.tmp
+crushtool -c .crushmap.tmp -o .crushmap.out.tmp
+ceph osd setcrushmap -i .crushmap.out.tmp
+rm -f .crushmap.out.tmp
+rm -f .crushmap.tmp

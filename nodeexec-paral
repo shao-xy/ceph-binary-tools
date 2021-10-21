@@ -1,0 +1,65 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+	CMD=
+else
+	CMD="$*"
+fi
+
+echo "Select nodes: (1-18)"
+read NODES_SYMBOLS
+
+NODES=
+LAST_NODE=
+RANGE_FLAG=false
+for sym in $NODES_SYMBOLS ; do
+	if [ $sym == "-" ] && [ "$LAST_NODE" ]; then
+		if [ $RANGE_FLAG == "true" ]; then
+			echo "Bad input: two symbols '-' together"
+			exit
+		else
+			RANGE_FLAG=true
+		fi
+	elif [ $sym -ge 1 ] && [ $sym -le 18 ]; then
+		if [ $RANGE_FLAG == "true" ]; then
+			NODES="$NODES `seq $LAST_NODE $sym`"
+			LAST_NODE=
+			RANGE_FLAG=false
+		else
+			NODES="$NODES $LAST_NODE"
+			LAST_NODE=$sym
+		fi
+	else
+		echo "Bad input: $sym"
+		exit
+	fi
+done
+if [ $RANGE_FLAG == "true" ]; then
+	echo "Bad input: no end!"
+	exit
+elif [ "$LAST_NODE" ]; then
+	NODES="$NODES $LAST_NODE"
+fi
+
+NODE_LIST=
+for node in $NODES ; do
+	NODE_LIST="$NODE_LIST $node"
+done
+
+#######################################################################
+if [ ! "$CMD" ]; then
+	echo "Command:"
+	read CMD
+fi
+
+#######################################################################
+echo -e "Executing:\n\e[1;33m$CMD\e[0m\nOn these nodes:\n\e[1;33m$NODE_LIST\e[0m"
+echo "Press [Enter] to continue or [Ctrl-C] to exit"
+read
+
+echo
+for node in $NODE_LIST; do
+	ssh node$node $CMD &
+done
+wait
+echo "OK."

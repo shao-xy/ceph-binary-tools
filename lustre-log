@@ -1,0 +1,2 @@
+LU_LOG_FILE_PATH=/home/ceph/log/log
+sudo lctl debug_kernel>>$LU_LOG_FILE_PATH

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# This shell script is created to connect to the nodes in ceph cluster.
+
+if [[ "$1" = "" ]] ; then
+# Print usage
+#	echo -e "\e[1;31mUsage:\e[0m $0 nodeid"
+
+# Ask user to give the node number
+	read -p "Which node? (1-19): " NODE_NUM
+else
+	NODE_NUM=$1
+fi
+
+if [ $NODE_NUM -lt 1 ] || [ $NODE_NUM -gt `cat /home/ceph/bin/nodenum` ] ; then
+	echo "Not a valid number: $NODE_NUM"
+	exit
+fi
+
+echo "ssh node$NODE_NUM"
+ssh node$NODE_NUM

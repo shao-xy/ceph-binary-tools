@@ -1,0 +1,26 @@
+para_num=$#
+if [ $para_num != 1 ]
+then
+    echo "必须指定hash个数"
+    exit 1
+fi
+
+for i in `seq 1 100`
+do
+{
+	rm -rf /mnt/lustre-client-1/filebench/*/bigfileset-$i
+	echo "清除client$i的数据"
+} &
+done
+
+wait
+
+echo "删除上次的clients数据"
+sudo rm -rf /mnt/lustre-client-1/filebench
+echo "删除旧filebench文件夹"
+echo "生成hash在$1 个MDS上的filebench文件夹"
+sudo lfs mkdir -c $1 /mnt/lustre-client-1/filebench
+sudo chown ceph:ceph /mnt/lustre-client-1/filebench
+sudo lfs setdirstripe -c $1 -D /mnt/lustre-client-1/filebench
+lfs getdirstripe /mnt/lustre-client-1/filebench
+echo "完成"

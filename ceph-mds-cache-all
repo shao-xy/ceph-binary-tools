@@ -1,0 +1,16 @@
+#!/bin/bash
+
+g_mounted_dir=
+
+function check_mounted() {
+	mounted_dir=$(df | grep ceph-client- | awk '{print $NF}' | head -n 1)
+	if [ "${mounted_dir}" -eq ""]; then
+		remount-ceph 1 1
+		g_mounted_dir=/mnt/ceph-client-1
+	else
+		g_mounted_dir=${mounted_dir}
+	fi
+}
+
+check_mounted
+ls -fR ${g_mounted_dir}

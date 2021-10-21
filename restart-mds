@@ -1,0 +1,65 @@
+#!/bin/bash
+
+## Global variables
+MDS_HOST_SIZE=5
+MDS_PER_HOST=1
+
+SUDO=
+function check_sudo() {
+	if test $(id -u) -ne 0; then
+		echo "None root user detected. 'sudo' used in some procedures."
+		SUDO=sudo
+	fi
+}
+
+function clear_ipc_tunnel() {
+	${SUDO} ipcrm -a
+}
+
+function check_mds_online() {
+	${SUDO} systemctl status ceph-mds@$1
+	if test $? -ne 0; then
+		${SUDO} systemctl reset-failed ceph-mds@$1
+		${SUDO} systemctl restart ceph-mds@$1
+	fi
+}
+
+check_sudo
+#clear_ipc_tunnel
+
+function restart_mds_instances()
+{
+	echo "Unmounting clients ..."
+	/home/ceph/ai-scripts/umountAllSlave &>/dev/null
+	echo "Restarting MDS instances..."
+	for i in $(seq 1 $MDS_HOST_SIZE); do
+		ssh node$i sudo systemctl daemon-reload
+		for j in $(seq 1 $MDS_PER_HOST); do
+			ssh node$i sudo systemctl restart ceph-mds@mds${i}-${j}.service
+		done
+	done
+	sleep 20
+}
+
+function check_mds_instances_running()
+{
+	echo "Checking MDS instances running"
+	for i in $(seq 1 $MDS_HOST_SIZE); do
+		for j in $(seq 1 $MDS_PER_HOST); do
+			ssh node$i sudo systemctl status ceph-mds@mds${i}-${j}.service &>/dev/null
+			if test $? -ne 0; then
+				echo "MDS instance mds${i}-${j} is not running. Try restarting..."
+				ssh node$i sudo systemctl reset-failed ceph-mds@mds${i}-${j}.service
+				ssh node$i sudo systemctl restart ceph-mds@mds${i}-${j}.service
+				ssh node$i sudo systemctl status ceph-mds@mds${i}-${j}.service &>/dev/null
+				if test $? -ne 0; then
+					echo "Fatal: MDS instance mds${i}-${j} failed to restart."
+					exit 1
+				fi
+			fi
+		done
+	done
+}
+
+restart_mds_instances
+check_mds_instances_running

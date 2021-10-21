@@ -1,0 +1,16 @@
+#!/bin/bash -e
+
+MDS=`cat /etc/hostname`
+
+#DIR=/home/ceph/ceph-src/ceph-12.2.5/build
+DIR=/home/ceph/ceph-src/scaling-mds-ceph/build
+
+cd $DIR
+
+make -j32
+
+sudo make install -j32
+
+# sudo systemctl restart ceph-mds@$MDS
+
+echo "re-make MDS $MDS over."

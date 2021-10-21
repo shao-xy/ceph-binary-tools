@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# I am a child of the user's bash or other process
+invoker_pid=$(ps -o ppid= -p $$)
+
+# Now get command line of the  real "parent":
+#ps -o ppid= -o cmd= -p $invoker_pid
+pstree -s -p $invoker_pid

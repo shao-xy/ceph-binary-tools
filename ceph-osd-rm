@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+osd_id=
+
+case "$1" in
+    [0-9][0-9]*)
+        osd_id=$1
+        ;;
+    *)
+        echo "Usage: $0 (OSD_id)"
+        exit 1
+esac
+
+echo "OSD id is $osd_id"
+
+echo "Removing OSD from crushmap..."
+ceph osd crush remove osd.$osd_id
+echo "Removing OSD from authentication..."
+ceph auth del osd.$osd_id
+echo "Removing OSD..."
+ceph osd rm $osd_id

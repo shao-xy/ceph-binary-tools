@@ -1,0 +1,10 @@
+#!/bin/bash
+
+error_out=$(mds-rebuild 2>&1 >/dev/null)
+
+if test $(echo ${error_out} | wc -l) -eq 0; then
+	echo -e "\e[1;34mBuilt done without output.\e[0m"
+else
+	echo -e "\e[1;34mBuilt. Output:\e[0m"
+	echo ${error_out}
+fi
