@@ -30,7 +30,7 @@ def log(logger, mutex, dashboard, update_idx = -1):
 			#logger.info(line, extra={'tag': 'THREAD %d' % (i+1)})
 	else:
 		sys.stdout.write('\r' + '\033[1A' * (len(dashboard) - update_idx) + '\033[0K')
-		sys.stdout.write('\033[1;32m[THREAD %d]\033[0m %s' % (update_idx + 1, dashboard[update_idx]))
+		sys.stdout.write('\033[1;32m[THREAD %2d]\033[0m %s' % (update_idx + 1, dashboard[update_idx]))
 		sys.stdout.write('\n' * (len(dashboard) - update_idx))
 
 	mutex.release()

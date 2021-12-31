@@ -66,7 +66,7 @@ def trans_cmds(args, logger):
 
 def run_single_cmd(cmd, logger, thrd_index):
 	if not cmd:	return
-	logging_tag = 'Thread %d' % thrd_index
+	logging_tag = 'Thread %2d' % thrd_index
 	logger.info('Starting command: %s' % cmd, extra = {'tag': logging_tag})
 	subp = subprocess.Popen(cmd, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	
