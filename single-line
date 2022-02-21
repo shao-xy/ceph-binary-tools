@@ -1,0 +1,10 @@
+#!/bin/bash
+
+width=$(tput cols)
+while read line; do
+	if test ${#line} -gt ${width}; then
+		line="${line:0:$[$width-3]}..."
+	fi
+	awk '{printf "\033[0K%s\r", $0}' <<< "${line}"
+done
+echo

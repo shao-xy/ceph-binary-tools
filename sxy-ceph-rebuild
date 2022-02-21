@@ -1,0 +1,109 @@
+#!/bin/bash -e
+
+NODENAME=`cat /etc/hostname`
+
+#DIR=/home/ceph/ceph-src/ceph-12.2.5/build
+DIR=/home/ceph/ceph-src/ceph/build
+
+function usage() 
+{
+	>&2 echo -e "Usage: $(realpath $0) [-h] [-r] [-i] [-b target_branch] [-c target_commit]"
+	>&2 echo -e ""
+	>&2 echo -e "Optional arguments:"
+	>&2 echo -e "    -b          Switch to branch <target_branch> before rebuilding."
+	>&2 echo -e "    -c          Switch to commit <target_commit> before rebuilding."
+	>&2 echo -e "    -h          Show this help and exit."
+	>&2 echo -e "    -i          Immediate rebuild mode: Build as it is.\n Only \"-r\" option works with this option on."
+	>&2 echo -e "    -r          Restart Ceph components after rebuild."
+}
+
+g_branch=
+g_commit=
+g_restart_flag=false
+g_immediate=false
+while [ ! -z "$1" ]; do
+	case "$1" in
+		-b)	g_branch="$2"; shift ;;
+		-c)	g_commit="$2"; shift ;;
+		-h)	usage; exit 0;;
+		-i)	g_immediate=true;;
+		-r)	g_restart_flag=true;;
+		*)	>&2 echo "Unknown option: $1"; usage; exit 1;;
+	esac
+	shift
+done
+
+cd $DIR
+
+if [ "$g_immediate" == true ]; then
+	set -x
+	make -j32
+	sudo make install -j32
+	if [ "$g_restart_flag" == true ]; then
+		sudo systemctl restart ceph.target
+	fi
+	exit 0
+fi
+
+function git_branch {
+    ref=$(git symbolic-ref HEAD 2> /dev/null) || return;
+    echo "${ref#refs/heads/}";
+}
+
+bin_ver=$(/usr/bin/ceph-mds --version)
+bin_ver=${bin_ver#*(}
+bin_ver=${bin_ver%%)*}
+
+git fetch
+
+cur_branch=
+if [ ! -z "$g_branch" ]; then
+	latest_commit=$(git show origin/${g_branch} -s --format=%H || exit $?)
+	cur_branch="$g_branch"
+elif [ ! -z "$g_commit" ]; then
+	latest_commit=$(git show ${g_commit} -s --format=%H 2>/dev/null | tail -1)
+	if [ -z "$latest_commit" ]; then
+		# error happened
+		exit 1
+	fi
+else
+	cur_branch=$(git_branch)
+	if [ -z "$cur_branch" ]; then
+		# Detached mode
+		latest_commit=$(git show -s --format=%H)
+	else
+		latest_commit=$(git show origin/${cur_branch} -s --format=%H)
+	fi
+fi
+
+if [ "$latest_commit" != "$bin_ver" ]; then
+	# Disregard everything
+	git co -- ../
+	if [ ! -z "$g_branch" ]; then
+		git co "$g_branch" || exit $?
+	elif [ ! -z "$g_commit" ]; then
+		git co "$g_commit" || exit $?
+	fi
+	cur_commit=$(git show -s --format=%H)
+	merge_base=$(git merge-base ${cur_commit} ${latest_commit})
+	if [ "$cur_commit" != "$merge_base" ]; then
+		git reset --hard "$merge_base"
+	fi
+	if [ "$merge_base" != "$latest_commit" ]; then
+		# commit mode should never reach here:
+		#   $merge_base = $cur_commit = $latest_commit = $g_commit
+		# as a result, $cur_branch is not null
+		git merge origin/"$cur_branch"
+	fi
+	make -j20
+	sudo make install -j32
+fi
+
+if [ "$g_restart_flag" == true ]; then
+	sudo systemctl restart ceph.target
+fi
+
+bin_ver=$(/usr/bin/ceph-mds --version)
+bin_ver=${bin_ver#*(}
+bin_ver=${bin_ver%%)*}
+echo "Rebuild Ceph on $NODENAME DONE. Current version: ${bin_ver}"
