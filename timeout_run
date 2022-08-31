@@ -1,0 +1,15 @@
+#!/bin/bash
+
+timeout=$1
+shift
+cmd="$@"
+$@ &
+pid_app=$!
+(trap 'exit 0' TERM; sleep $timeout &>/dev/null; echo "Timeout(${timeout}s): $cmd"; kill $pid_app;) &
+pid_killer=$!
+
+wait $pid_app
+status=$?
+(kill -0 $pid_killer &>/dev/null && kill $pid_killer &>/dev/null) || true
+
+exit $status

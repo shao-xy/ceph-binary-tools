@@ -67,5 +67,5 @@ while [ ${mds_num} -gt 1 ]; do
 done
 echo -en "\r                     "
 echo -e "\rDone."
-#notify-sxy "Main cluster MDS size trimmed to 1 done."
+notify-sxy "Main cluster MDS trim done."
 exit 0
